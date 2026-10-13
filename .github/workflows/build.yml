@@ -1,0 +1,34 @@
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build
+
+      - name: Build Targets
+        run: cmake --build build --config Release
+
+      - name: Run Test Suite
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Execute OptiForge CLI
+        run: |
+          cmake -E chdir build ./optiforge-cli || cmake -E chdir build/Release ./optiforge-cli
+
+      - name: Execute OptiForge Benchmarks
+        run: |
+          cmake -E chdir build ./optiforge-benchmark || cmake -E chdir build/Release ./optiforge-benchmark

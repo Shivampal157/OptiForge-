@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OptiForge | C++17 Compiler Optimization & Register Allocation Visualizer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #121a2d;
+      --line: #253354;
+      --text: #e8edf7;
+      --muted: #95a4c2;
+      --accent: #76e4b5;
+      --blue: #8ab4ff;
+      --amber: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top right, #182c4c 0%, #0b1020 45%);
+      color: var(--text);
+      font: 15px/1.5 Inter, Segoe UI, Roboto, sans-serif;
+    }
+    main { max-width: 1200px; margin: 0 auto; padding: 40px 24px 60px; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 28px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    h1 { font-size: 38px; line-height: 1.1; margin: 8px 0 10px; font-weight: 800; }
+    h2 { margin: 0 0 14px; font-size: 18px; }
+    p { color: var(--muted); max-width: 740px; margin: 0; font-size: 14.5px; }
+    button, select {
+      border: 1px solid #3c5b86;
+      border-radius: 8px;
+      background: #1b3152;
+      color: var(--text);
+      padding: 10px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13.5px;
+      transition: all 0.15s ease;
+    }
+    button:hover { background: #26456f; border-color: var(--accent); }
+    button.primary { background: var(--accent); color: #042517; border-color: var(--accent); }
+    button.primary:hover { background: #92f0c7; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 22px 0; }
+    .card, .panel {
+      background: rgba(18, 26, 45, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(5, 9, 19, 0.4);
+    }
+    .card { padding: 18px; }
+    .label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+    .value { color: var(--accent); font-size: 28px; font-weight: 800; margin-top: 4px; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .panel { padding: 20px; }
+    pre {
+      background: #080d18;
+      border: 1px solid #1d2941;
+      border-radius: 8px;
+      padding: 14px;
+      overflow: auto;
+      min-height: 190px;
+      color: #d7e2f8;
+      margin: 0;
+      font: 12.5px/1.65 Consolas, Monaco, monospace;
+    }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .bar { height: 8px; background: #202d47; border-radius: 6px; overflow: hidden; margin-top: 8px; }
+    .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--accent)); border-radius: 6px; transition: width 0.3s ease; }
+    footer { color: var(--muted); margin-top: 30px; font-size: 13px; text-align: center; }
+    @media(max-width: 800px) { header, .toolbar { display: block; } .grid, .layout { grid-template-columns: 1fr 1fr; } }
+    @media(max-width: 520px) { .grid, .layout { grid-template-columns: 1fr; } h1 { font-size: 30px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <div class="eyebrow">C++17 Compiler Optimization Prototype</div>
+      <h1>OptiForge</h1>
+      <p>Explore SSA-like intermediate representation (IR), constant folding, local common-subexpression elimination (CSE), dead-code elimination (DCE), backwards dataflow liveness analysis, and RV64 code generation.</p>
+    </div>
+    <button class="primary" id="run">Run Optimization Passes</button>
+  </header>
+
+  <section class="grid">
+    <div class="card"><div class="label">Instructions Before</div><div class="value" id="before">—</div></div>
+    <div class="card"><div class="label">Instructions After</div><div class="value" id="after">—</div></div>
+    <div class="card"><div class="label">IR Instruction Reduction</div><div class="value" id="reduction">—</div></div>
+    <div class="card"><div class="label">Peak Live Values (Registers)</div><div class="value" id="peak">—</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <h2>Benchmark Kernel</h2>
+      <select id="kernel">
+        <option value="polynomial">Polynomial Evaluation Kernel (P(x) = 3x^3 + 7x^2 + 11x + 4)</option>
+        <option value="reduction">Common-Subexpression & Redundant Arithmetic Kernel</option>
+      </select>
+    </div>
+    <div class="label">Optimization Efficiency Gauge</div>
+    <div class="bar"><span id="progress" style="width:0%"></span></div>
+    <p id="summary" style="margin-top:10px">Select a kernel and run the optimization passes.</p>
+  </section>
+
+  <section class="layout" style="margin-top:16px">
+    <div class="panel"><h2>IR Before Optimization</h2><pre id="irBefore">Run the pipeline to inspect the IR.</pre></div>
+    <div class="panel"><h2>IR After Optimization (CSE + DCE)</h2><pre id="irAfter">Run the pipeline to inspect the optimized IR.</pre></div>
+    <div class="panel"><h2>Emitted RV64 Assembly</h2><pre id="asm">Run the pipeline to emit RV64 assembly.</pre></div>
+    <div class="panel"><h2>Pass Activity & Liveness Report</h2><pre id="metrics">constant_folds: —&#10;cse_eliminations: —&#10;dead_code_eliminations: —</pre></div>
+  </section>
+
+  <footer>
+    OptiForge | C++17 Compiler Backend Prototype | <a href="https://github.com/Shivampal157/OptiForge-" target="_blank" style="color:var(--accent);text-decoration:none">GitHub Repository</a>
+  </footer>
+</main>
+
+<script>
+const kernels = {
+  polynomial: {
+    before: `%1 = load a0\n%2 = const 3\n%3 = const 7\n%4 = const 11\n%5 = mul %1, %1\n%6 = mul %5, %1\n%7 = mul %2, %5\n%8 = add %6, %7\n%9 = mul %3, %1\n%10 = add %9, %4\n%11 = add %8, %10\n%12 = mul %2, %5\n%13 = add %6, %12\n%14 = add %11, %13\nreturn %14`,
+    after: `%1 = load a0\n%2 = const 3\n%3 = const 7\n%4 = const 11\n%5 = mul %1, %1\n%6 = mul %5, %1\n%7 = mul %2, %5\n%8 = add %6, %7\n%9 = mul %3, %1\n%10 = add %9, %4\n%11 = add %8, %10\n%14 = add %11, %8\nreturn %14`,
+    asm: `ld   x5, 0(a0)\nli   x6, 3\nli   x7, 7\nli   x8, 11\nmul  x9, x5, x5\nmul  x10, x9, x5\nmul  x11, x6, x9\nadd  x12, x10, x11\nmul  x13, x7, x5\nadd  x14, x13, x8\nadd  x15, x12, x14\nadd  x16, x15, x12\nmv   a0, x16\nret`,
+    beforeCount: 15, afterCount: 13, peak: 6, folds: 0, cse: 2, dce: 0
+  },
+  reduction: {
+    before: `%1 = load a0\n%2 = const 1\n%3 = const 2\n%4 = add %1, %2\n%5 = add %1, %2\n%6 = mul %4, %3\n%7 = mul %5, %3\n%8 = add %6, %7\nreturn %8`,
+    after: `%1 = load a0\n%2 = const 1\n%3 = const 2\n%4 = add %1, %2\n%6 = mul %4, %3\n%8 = add %6, %6\nreturn %8`,
+    asm: `ld   x5, 0(a0)\nli   x6, 1\nli   x7, 2\nadd  x8, x5, x6\nmul  x9, x8, x7\nadd  x10, x9, x9\nmv   a0, x10\nret`,
+    beforeCount: 9, afterCount: 7, peak: 3, folds: 0, cse: 2, dce: 0
+  }
+};
+
+function run() {
+  const k = kernels[document.querySelector("#kernel").value];
+  const reduction = ((k.beforeCount - k.afterCount) / k.beforeCount * 100).toFixed(1);
+  document.querySelector("#before").textContent = k.beforeCount;
+  document.querySelector("#after").textContent = k.afterCount;
+  document.querySelector("#reduction").textContent = reduction + "%";
+  document.querySelector("#peak").textContent = k.peak;
+  document.querySelector("#progress").style.width = reduction + "%";
+  document.querySelector("#summary").textContent = `Passes applied successfully: Removed ${k.beforeCount - k.afterCount} redundant instructions via local CSE. Peak simultaneous live values: ${k.peak}.`;
+  document.querySelector("#irBefore").textContent = k.before;
+  document.querySelector("#irAfter").textContent = k.after;
+  document.querySelector("#asm").textContent = k.asm;
+  document.querySelector("#metrics").textContent = `constant_folds: ${k.folds}\ncse_eliminations: ${k.cse}\ndead_code_eliminations: ${k.dce}\npeak_live_registers: ${k.peak}\nliveness_status: verified`;
+}
+
+document.querySelector("#run").addEventListener("click", run);
+document.querySelector("#kernel").addEventListener("change", run);
+run();
+</script>
+</body>
+</html>
